@@ -1,0 +1,10 @@
+[Unit]
+Description=Energy Monitor service
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/dotnet /usr/lib/energy/EnergyMonitor.dll
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
