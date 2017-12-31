@@ -57,7 +57,7 @@ namespace Brultech.ECM1240
                 return currentValue - previousValue;
         }
 
-        internal static uint CheckForRolloverOf4ByteCounter(this uint currentValue, uint previousValue)
+        public static uint CheckForRolloverOf4ByteCounter(this uint currentValue, uint previousValue)
         {
             //if the current value is less than the previous value, assume it has rolled over to zero
             if (currentValue < previousValue)
@@ -66,7 +66,7 @@ namespace Brultech.ECM1240
                 return currentValue - previousValue;
         }
 
-        internal static ulong CheckForRolloverOf5ByteCounter(this ulong currentValue, ulong previousValue)
+        public static ulong CheckForRolloverOf5ByteCounter(this ulong currentValue, ulong previousValue)
         {
             //if the current value is less than the previous value, assume it has rolled over to zero
             if (currentValue < previousValue)
