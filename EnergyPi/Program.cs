@@ -36,6 +36,7 @@ class Program
                 services.AddSingleton(typeof(BrultechSerialReceiver));
 
                 services.AddSingleton(context.Configuration.GetSection("BrultechSettings").Get<BrultechSettings>() ?? new BrultechSettings());
+                services.AddSingleton(context.Configuration.GetSection("StorageOptions").Get<StorageOptions>() ?? new StorageOptions());
 
                 var connectionString = context.Configuration.GetConnectionString("EnergyMonitoring");
 

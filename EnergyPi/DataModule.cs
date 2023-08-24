@@ -7,18 +7,29 @@ using System.Diagnostics;
 
 namespace EnergyPi;
 
+public class StorageOptions
+{
+    public bool Compaction { get; set; } = false;
+    public TimeSpan CompactionThreshold { get; set; } = TimeSpan.FromDays(62);
+}
+
 public class DataModule
 {
     private readonly IDbContextFactory<EnergyMonitorContext> _dbFactory;
+    private readonly StorageOptions _options;
 
     private Dictionary<ushort, Packet>? _lastPackets = new();
     private readonly Dictionary<ushort, DateTime> _compactionProgress = new();
     private CancellationTokenSource _cts = new();
     private Task? _compactionTask;
 
-    public DataModule(IDbContextFactory<EnergyMonitorContext> dbFactory)
+    public DataModule(IDbContextFactory<EnergyMonitorContext> dbFactory, StorageOptions options)
     {
         _dbFactory = dbFactory;
+        _options = options;
+
+        Console.WriteLine(
+            $"{nameof(DataModule)} beginning with compaction {(_options.Compaction ? "enabled" : "disabled")}");
     }
 
 
@@ -26,12 +37,15 @@ public class DataModule
     {
         _lastPackets = await GetLastPackets().ConfigureAwait(false);
 
-        foreach (var packet in _lastPackets)
+        if (_options.Compaction)
         {
-            _compactionProgress.Add(packet.Key, DateTime.UtcNow.AddMonths(-12));
-        }
+            foreach (var packet in _lastPackets)
+            {
+                _compactionProgress.Add(packet.Key, DateTime.UtcNow.AddMonths(-12));
+            }
 
-        _compactionTask = CompactionTask(_cts.Token);
+            _compactionTask = CompactionTask(_cts.Token);
+        }
     }
 
     public void Stop()
