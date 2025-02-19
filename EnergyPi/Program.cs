@@ -42,7 +42,10 @@ class Program
 
                 services.AddDbContextFactory<EnergyMonitorContext>(optionsBuilder =>
                 {
-                    optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+                    optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString), options =>
+                    {
+                        options.EnableRetryOnFailure();
+                    });
                 }).AddEntityFrameworkMySql();
             });
 
