@@ -10,7 +10,8 @@ namespace EnergyPi;
 public class StorageOptions
 {
     public bool Compaction { get; set; } = false;
-    public TimeSpan CompactionThreshold { get; set; } = TimeSpan.FromDays(62);
+    public TimeSpan CompactionEndThreshold { get; set; } = TimeSpan.FromDays(62);
+    public TimeSpan CompactionBeginThreshold { get; set; } = TimeSpan.FromDays(365);
 }
 
 public class DataModule
@@ -30,6 +31,10 @@ public class DataModule
 
         Console.WriteLine(
             $"{nameof(DataModule)} beginning with compaction {(_options.Compaction ? "enabled" : "disabled")}");
+        Console.WriteLine(
+            $"{nameof(DataModule)} beginning with CompactionBeginThreshold {_options.CompactionBeginThreshold}");
+        Console.WriteLine(
+            $"{nameof(DataModule)} beginning with CompactionEndThreshold {_options.CompactionEndThreshold}");
     }
 
 
@@ -41,7 +46,7 @@ public class DataModule
         {
             foreach (var packet in _lastPackets)
             {
-                _compactionProgress.Add(packet.Key, DateTime.UtcNow.AddMonths(-12));
+                _compactionProgress.Add(packet.Key, DateTime.UtcNow.Subtract(_options.CompactionBeginThreshold));
             }
 
             _compactionTask = CompactionTask(_cts.Token);
@@ -171,7 +176,7 @@ public class DataModule
     private async Task<bool> CompactForUnit(ushort deviceAddress, CancellationToken cancellationToken)
     {
         var startThreshold = _compactionProgress[deviceAddress];
-        var endThreshold = DateTime.UtcNow.AddMonths(-2);
+        var endThreshold = DateTime.UtcNow.Subtract(_options.CompactionEndThreshold);
         var counter = 0;
         
         Console.WriteLine($"{deviceAddress} - beginning compaction from {startThreshold}");

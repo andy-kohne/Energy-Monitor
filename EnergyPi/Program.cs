@@ -21,10 +21,18 @@ class Program
             })
             .ConfigureAppConfiguration((context, builder) =>
             {
+#if DEBUG
+                var path = AppDomain.CurrentDomain.BaseDirectory;
+#else
+            var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
+                ? AppDomain.CurrentDomain.BaseDirectory
+                : Path.Combine("/etc", "energypi");
+#endif
                 var env = context.HostingEnvironment;
-                builder.SetBasePath(AppContext.BaseDirectory)
+                builder.SetBasePath(path)
                     .AddJsonFile("appsettings.json", optional: false)
                     .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true).AddEnvironmentVariables();
+
             })
             .ConfigureServices((context, services) =>
             {
