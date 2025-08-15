@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Runtime.InteropServices;
 
 namespace EnergyPi;
 
@@ -21,13 +22,10 @@ class Program
             })
             .ConfigureAppConfiguration((context, builder) =>
             {
-#if DEBUG
-                var path = AppDomain.CurrentDomain.BaseDirectory;
-#else
-            var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-                ? AppDomain.CurrentDomain.BaseDirectory
-                : Path.Combine("/etc", "energypi");
-#endif
+                var path = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
+                    ? AppDomain.CurrentDomain.BaseDirectory
+                    : Path.Combine("/etc", "energypi");
+
                 var env = context.HostingEnvironment;
                 builder.SetBasePath(path)
                     .AddJsonFile("appsettings.json", optional: false)

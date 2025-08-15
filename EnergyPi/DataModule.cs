@@ -12,6 +12,8 @@ public class StorageOptions
     public bool Compaction { get; set; } = false;
     public TimeSpan CompactionEndThreshold { get; set; } = TimeSpan.FromDays(62);
     public TimeSpan CompactionBeginThreshold { get; set; } = TimeSpan.FromDays(365);
+    public TimeSpan MaxCompactionPeriod { get; set; } = TimeSpan.FromDays(180);
+
 }
 
 public class DataModule
@@ -177,6 +179,10 @@ public class DataModule
     {
         var startThreshold = _compactionProgress[deviceAddress];
         var endThreshold = DateTime.UtcNow.Subtract(_options.CompactionEndThreshold);
+
+        if (endThreshold.Subtract(startThreshold) > _options.MaxCompactionPeriod)
+            endThreshold = startThreshold.Add(_options.MaxCompactionPeriod);
+
         var counter = 0;
         
         Console.WriteLine($"{deviceAddress} - beginning compaction from {startThreshold}");
@@ -193,6 +199,8 @@ public class DataModule
             select ur;
 
         var readings = await query.Take(10000).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        Console.WriteLine($"{deviceAddress} - fetched {readings.Count} readings");
 
         var last = readings.First();
         var removed = false;
@@ -221,6 +229,7 @@ public class DataModule
                 reading.aux5Watts = (int)newRates.Aux5Rate;
                 reading.otherLoads = newRates.OtherRate;
                 await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                removed = false;
             }
 
             last = reading;
