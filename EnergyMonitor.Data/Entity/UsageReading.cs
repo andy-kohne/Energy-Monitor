@@ -29,14 +29,6 @@ public class UsageReading
     public uint aux3WS { get; set; }
     public uint aux4WS { get; set; }
     public uint aux5WS { get; set; }
-    public int ch1Watts { get; set; }
-    public int ch2Watts { get; set; }
-    public int aux1Watts { get; set; }
-    public int aux2Watts { get; set; }
-    public int aux3Watts { get; set; }
-    public int aux4Watts { get; set; }
-    public decimal aux5Watts { get; set; }
-    public int otherLoads { get; set; }
 }
 
 

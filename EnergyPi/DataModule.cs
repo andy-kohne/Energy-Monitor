@@ -9,10 +9,25 @@ namespace EnergyPi;
 
 public class StorageOptions
 {
+    /// <summary>
+    /// Enables/Disables data compaction
+    /// </summary>
     public bool Compaction { get; set; } = false;
+
+    /// <summary>
+    /// Configures the age a record must be before being eligible for compaction
+    /// </summary>
     public TimeSpan CompactionEndThreshold { get; set; } = TimeSpan.FromDays(62);
+
+    /// <summary>
+    /// Configures how far back to begin looking for records to compact
+    /// </summary>
     public TimeSpan CompactionBeginThreshold { get; set; } = TimeSpan.FromDays(365);
-    public TimeSpan MaxCompactionPeriod { get; set; } = TimeSpan.FromDays(180);
+
+    /// <summary>
+    /// The period duration for which to remove excess records
+    /// </summary>
+    public TimeSpan CompactToPeriod { get; set; } = TimeSpan.FromMinutes(2.5);
 
 }
 
@@ -37,6 +52,8 @@ public class DataModule
             $"{nameof(DataModule)} beginning with CompactionBeginThreshold {_options.CompactionBeginThreshold}");
         Console.WriteLine(
             $"{nameof(DataModule)} beginning with CompactionEndThreshold {_options.CompactionEndThreshold}");
+        Console.WriteLine(
+            $"{nameof(DataModule)} beginning with CompactToPeriod {_options.CompactToPeriod}");
     }
 
 
@@ -130,15 +147,6 @@ public class DataModule
                     Console.WriteLine($"Skipping out of order packet for {currentPacket.DeviceAddress} with seconds {currentPacket.SecondsCounter} less than previous {previousPacket.SecondsCounter}");
                 }
 
-                var rates = currentPacket.CompareTo(previousPacket);
-                newReading.ch1Watts = rates.Ch1AbsoluteRate;
-                newReading.ch2Watts = rates.Ch2AbsoluteRate;
-                newReading.aux1Watts = rates.Aux1Rate;
-                newReading.aux2Watts = rates.Aux2Rate;
-                newReading.aux3Watts = rates.Aux3Rate;
-                newReading.aux4Watts = rates.Aux4Rate;
-                newReading.aux5Watts = (int)rates.Aux5Rate;
-                newReading.otherLoads = rates.OtherRate;
             }
 
 
@@ -171,6 +179,8 @@ public class DataModule
                 ? TimeSpan.FromSeconds(1)
                 : TimeSpan.FromMinutes(10);
 
+            Console.WriteLine($"compaction delayed for {delay} before next cycle");
+
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
     }
@@ -179,9 +189,6 @@ public class DataModule
     {
         var startThreshold = _compactionProgress[deviceAddress];
         var endThreshold = DateTime.UtcNow.Subtract(_options.CompactionEndThreshold);
-
-        if (endThreshold.Subtract(startThreshold) > _options.MaxCompactionPeriod)
-            endThreshold = startThreshold.Add(_options.MaxCompactionPeriod);
 
         var counter = 0;
         
@@ -202,43 +209,41 @@ public class DataModule
 
         Console.WriteLine($"{deviceAddress} - fetched {readings.Count} readings");
 
-        var last = readings.First();
-        var removed = false;
-        foreach (var reading in readings.Skip(1))
+        if (readings.Any())
         {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            if (reading.dateTimeUTC.Subtract(last.dateTimeUTC) < TimeSpan.FromMinutes(5))
+            var last = readings.First();
+            var removed = false;
+            foreach (var reading in readings.Skip(1))
             {
-                counter++;
-                removed = true;
-                dbContext.UsageReadings.Remove(reading);
-                continue;
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                if (reading.dateTimeUTC.Subtract(last.dateTimeUTC) < _options.CompactToPeriod)
+                {
+                    counter++;
+                    removed = true;
+                    dbContext.UsageReadings.Remove(reading);
+                    continue;
+                }
+
+                if (removed)
+                {
+                    await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    removed = false;
+                }
+
+                last = reading;
             }
 
-            if (removed)
-            {
-                var newRates = reading.ToPacket().CompareTo(last.ToPacket());
-                reading.ch1Watts = newRates.Ch1AbsoluteRate;
-                reading.ch2Watts = newRates.Ch2AbsoluteRate;
-                reading.aux1Watts = newRates.Aux1Rate;
-                reading.aux2Watts = newRates.Aux2Rate;
-                reading.aux3Watts = newRates.Aux3Rate;
-                reading.aux4Watts = newRates.Aux4Rate;
-                reading.aux5Watts = (int)newRates.Aux5Rate;
-                reading.otherLoads = newRates.OtherRate;
-                await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                removed = false;
-            }
+            _compactionProgress[deviceAddress] = last.dateTimeUTC;
 
-            last = reading;
+            if (counter > 0)
+                Console.WriteLine($"{deviceAddress} - removed {counter} records in {sw.Elapsed.TotalSeconds} seconds  between {readings.First().dateTimeUTC} and {last.dateTimeUTC}");
         }
-
-        _compactionProgress[deviceAddress] = last.dateTimeUTC;
-
-        if (counter > 0)
-            Console.WriteLine($"{deviceAddress} - removed {counter} records in {sw.Elapsed.TotalSeconds} seconds");
+        else
+        {
+            _compactionProgress[deviceAddress] = endThreshold;
+        }
 
         return readings.Count < 10000;
     }
